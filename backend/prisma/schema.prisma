@@ -1,0 +1,292 @@
+// HMS Production MVP - Database Schema
+// Focused on Doctor Console with General/Specialist workflow
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ USER & AUTHENTICATION ============
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String   // bcrypt hashed
+  name      String
+  role      UserRole
+
+  // Doctor-specific fields
+  specialty DoctorSpecialty?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  patientsAssigned  Patient[] @relation("AssignedDoctor")
+  vitalsRecorded    Vitals[]  @relation("VitalsRecordedBy")
+  prescriptions     Prescription[] @relation("PrescribedBy")
+  labOrders         LabOrder[] @relation("OrderedBy")
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  RECEPTIONIST
+  NURSE
+  DOCTOR
+  LAB_TECH
+  PHARMACIST
+  BILLING
+}
+
+enum DoctorSpecialty {
+  GENERAL           // Shared queue
+  ORTHOPEDIC        // Assigned queue
+  CARDIOLOGY        // Assigned queue
+  GYNECOLOGY        // Assigned queue
+  ENT               // Assigned queue
+  DERMATOLOGY       // Assigned queue
+  PEDIATRIC         // Assigned queue
+}
+
+// ============ PATIENT & WORKFLOW ============
+
+model Patient {
+  id        String        @id @default(cuid())
+  token     Int           @unique // Daily token number
+  uhid      String        @unique // Unique Hospital ID (permanent)
+
+  // Demographics
+  name      String
+  age       Int
+  gender    Gender
+  mobile    String
+  address   String?
+
+  // Workflow State
+  stage              PatientStage  @default(VITALS_PENDING)
+  status             PatientStatus @default(IN_PROGRESS)
+  consultationType   DoctorSpecialty @default(GENERAL)
+
+  // Doctor Assignment
+  doctorId           String?
+  doctor             User?   @relation("AssignedDoctor", fields: [doctorId], references: [id])
+
+  // Timestamps
+  registeredAt  DateTime   @default(now())
+  completedAt   DateTime?
+
+  // Relations
+  vitals         Vitals?
+  prescriptions  Prescription[]
+  labOrders      LabOrder[]
+  stateHistory   PatientStateHistory[]
+
+  @@index([stage, status, doctorId])
+  @@index([stage, status, consultationType])
+  @@map("patients")
+}
+
+enum Gender {
+  M
+  F
+  OTHER
+}
+
+enum PatientStage {
+  REGISTERED
+  VITALS_PENDING
+  DOCTOR_PENDING
+  LAB_PENDING
+  PHARMACY_PENDING
+  BILLING_PENDING
+  COMPLETED
+}
+
+enum PatientStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// ============ VITALS ============
+
+model Vitals {
+  id            String   @id @default(cuid())
+  patientId     String   @unique
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  // Vital Signs
+  bp            String   // "120/80"
+  pulse         Int
+  temperature   Float
+  spo2          Int
+  height        Float    // cm
+  weight        Float    // kg
+  bmi           Float    // Auto-calculated
+
+  // Clinical Info
+  chiefComplaint String
+  allergies      String?  // Comma-separated
+
+  // Metadata
+  recordedById  String?
+  recordedBy    User?    @relation("VitalsRecordedBy", fields: [recordedById], references: [id])
+  recordedAt    DateTime @default(now())
+
+  @@map("vitals")
+}
+
+// ============ MEDICINES & STOCK ============
+
+model Medicine {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  genericName   String?
+  type          String   // Tablet, Syrup, Injection
+  strength      String   // 500mg, 10ml
+
+  // Pricing
+  mrp           Float
+  sellingPrice  Float
+
+  // Stock (denormalized for quick access)
+  currentStock  Int      @default(0)
+  reorderLevel  Int      @default(10)
+
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  stockBatches      MedicineStock[]
+  prescriptionItems PrescriptionItem[]
+
+  @@index([name])
+  @@map("medicines")
+}
+
+model MedicineStock {
+  id            String   @id @default(cuid())
+  medicineId    String
+  medicine      Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+
+  batchNumber   String
+  quantity      Int
+  expiryDate    DateTime
+
+  createdAt     DateTime @default(now())
+
+  @@unique([medicineId, batchNumber])
+  @@index([medicineId, expiryDate])
+  @@map("medicine_stock")
+}
+
+// ============ PRESCRIPTION ============
+
+model Prescription {
+  id          String   @id @default(cuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  doctorId    String
+  doctor      User     @relation("PrescribedBy", fields: [doctorId], references: [id])
+
+  diagnosis   String?
+  notes       String?
+
+  items       PrescriptionItem[]
+
+  createdAt   DateTime @default(now())
+  dispensedAt DateTime?
+
+  @@index([patientId])
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id             String       @id @default(cuid())
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  medicineId     String
+  medicine       Medicine     @relation(fields: [medicineId], references: [id])
+
+  dosage         String       // "1-0-1"
+  duration       Int          // days
+  quantity       Int          // auto-calculated
+  instructions   String?      // "After food"
+
+  dispensed      Boolean      @default(false)
+
+  @@map("prescription_items")
+}
+
+// ============ LAB TESTS ============
+
+model LabTest {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  category    String   // Hematology, Biochemistry
+  price       Float
+  sampleType  String   // Blood, Urine
+  tat         Int      // Turnaround time (minutes)
+
+  orders      LabOrder[]
+
+  @@map("lab_tests")
+}
+
+model LabOrder {
+  id         String    @id @default(cuid())
+  patientId  String
+  patient    Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  testId     String
+  test       LabTest   @relation(fields: [testId], references: [id])
+
+  doctorId   String
+  doctor     User      @relation("OrderedBy", fields: [doctorId], references: [id])
+
+  sampleId   String?   @unique
+  status     LabStatus @default(PENDING)
+
+  orderedAt  DateTime  @default(now())
+  collectedAt DateTime?
+  completedAt DateTime?
+
+  @@index([patientId, status])
+  @@map("lab_orders")
+}
+
+enum LabStatus {
+  PENDING
+  COLLECTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// ============ AUDIT TRAIL ============
+
+model PatientStateHistory {
+  id         String       @id @default(cuid())
+  patientId  String
+  patient    Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  fromStage  PatientStage?
+  toStage    PatientStage
+
+  performedBy String?     // User ID
+  reason      String?
+
+  timestamp  DateTime     @default(now())
+
+  @@index([patientId, timestamp])
+  @@map("patient_state_history")
+}
