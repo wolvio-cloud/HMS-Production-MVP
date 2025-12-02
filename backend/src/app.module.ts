@@ -11,6 +11,7 @@ import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { LabModule } from './lab/lab.module';
 import { WorkflowModule } from './workflow/workflow.module';
 import { EventsModule } from './events/events.module';
+import { VitalsModule } from './vitals/vitals.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { EventsModule } from './events/events.module';
     AuthModule,
     UsersModule,
     PatientsModule,
+    VitalsModule,
     PharmacyModule,
     PrescriptionsModule,
     LabModule,
