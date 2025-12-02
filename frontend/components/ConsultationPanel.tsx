@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X } from "lucide-react";
+import { Check, X, Printer } from "lucide-react";
 import PatientInfo from "./PatientInfo";
 import PrescriptionBuilder from "./PrescriptionBuilder";
 import LabOrders from "./LabOrders";
@@ -28,6 +28,17 @@ export default function ConsultationPanel({
   const [diagnosis, setDiagnosis] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const handlePrintPrescription = (prescriptionId: string) => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+    const token = localStorage.getItem("hms_token");
+
+    // Open PDF in new tab
+    const url = `${API_URL}/prescriptions/${prescriptionId}/pdf`;
+    window.open(url + `?token=${token}`, "_blank");
+
+    toast.success("Opening prescription PDF...");
+  };
 
   const handleFinishConsultation = async () => {
     if (prescriptionItems.length === 0 && labTests.length === 0) {
@@ -175,12 +186,24 @@ export default function ConsultationPanel({
                     key={rx.id}
                     className="bg-white/60 rounded-lg p-4 border border-white/40"
                   >
-                    <p className="text-sm text-gray-600 mb-2">
-                      {new Date(rx.createdAt).toLocaleDateString()}
-                    </p>
-                    <p className="font-medium text-gray-800 mb-2">
-                      {rx.diagnosis}
-                    </p>
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-600 mb-1">
+                          {new Date(rx.createdAt).toLocaleDateString()}
+                        </p>
+                        <p className="font-medium text-gray-800">
+                          {rx.diagnosis}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handlePrintPrescription(rx.id)}
+                        className="ml-3 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 p-2 rounded-lg transition-colors flex items-center gap-2"
+                        title="Print Prescription"
+                      >
+                        <Printer className="w-4 h-4" />
+                        <span className="text-sm font-medium">Print</span>
+                      </button>
+                    </div>
                     <div className="space-y-1">
                       {rx.items.map((item: any) => (
                         <p key={item.id} className="text-sm text-gray-700">
