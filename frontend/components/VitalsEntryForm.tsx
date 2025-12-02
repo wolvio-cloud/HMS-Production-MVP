@@ -159,7 +159,7 @@ export default function VitalsEntryForm({
       });
 
       // Then complete vitals workflow (move to doctor queue)
-      await api.completeVitals(patient.id, user?.id || "");
+      await api.completeVitals(patient.id);
 
       toast.success(
         `Patient ${patient.name} sent to doctor queue!`

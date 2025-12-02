@@ -197,10 +197,8 @@ class ApiClient {
     return response.data;
   }
 
-  async completeVitals(patientId: string, performedBy: string) {
-    const response = await this.client.post(`/workflow/patients/${patientId}/complete-vitals`, {
-      performedBy,
-    });
+  async completeVitals(patientId: string) {
+    const response = await this.client.post(`/workflow/patients/${patientId}/complete-vitals`);
     return response.data;
   }
 }

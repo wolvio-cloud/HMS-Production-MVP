@@ -29,15 +29,42 @@ export default function ConsultationPanel({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const handlePrintPrescription = (prescriptionId: string) => {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-    const token = localStorage.getItem("hms_token");
+  const handlePrintPrescription = async (prescriptionId: string) => {
+    try {
+      toast.loading("Generating prescription PDF...");
 
-    // Open PDF in new tab
-    const url = `${API_URL}/prescriptions/${prescriptionId}/pdf`;
-    window.open(url + `?token=${token}`, "_blank");
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+      const token = localStorage.getItem("hms_token");
 
-    toast.success("Opening prescription PDF...");
+      // Fetch PDF with proper authentication
+      const response = await fetch(`${API_URL}/prescriptions/${prescriptionId}/pdf`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate PDF");
+      }
+
+      // Convert response to blob
+      const blob = await response.blob();
+
+      // Create blob URL and open in new tab
+      const blobUrl = window.URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+
+      // Clean up blob URL after a delay
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
+
+      toast.dismiss();
+      toast.success("Prescription PDF opened!");
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Failed to generate prescription PDF");
+      console.error("Error generating PDF:", error);
+    }
   };
 
   const handleFinishConsultation = async () => {
