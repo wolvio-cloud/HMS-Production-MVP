@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PatientStage, PatientStatus } from '@prisma/client';
+import { QueueGateway } from '../events/queue.gateway';
 
 interface StateTransition {
   fromStage: PatientStage;
@@ -11,7 +12,10 @@ interface StateTransition {
 
 @Injectable()
 export class WorkflowService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private queueGateway: QueueGateway,
+  ) {}
 
   /**
    * Valid state transitions (state machine rules)
@@ -105,6 +109,16 @@ export class WorkflowService {
     console.log(
       `✅ Patient ${patient.token} transitioned: ${patient.stage} → ${toStage}`,
     );
+
+    // Broadcast workflow transition event
+    this.queueGateway.broadcastQueueUpdate({
+      type: 'stage_changed',
+      patientId: updated[0].id,
+      patientToken: updated[0].token,
+      stage: toStage,
+      doctorId: updated[0].doctorId,
+      data: updated[0],
+    });
 
     return updated[0];
   }

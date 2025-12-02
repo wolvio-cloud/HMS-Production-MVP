@@ -172,6 +172,16 @@ export class PatientsService {
       }),
     ]);
 
+    // Broadcast stage change event
+    this.queueGateway.broadcastQueueUpdate({
+      type: 'stage_changed',
+      patientId: updated[0].id,
+      patientToken: updated[0].token,
+      stage: toStage,
+      doctorId: updated[0].doctorId,
+      data: updated[0],
+    });
+
     return updated[0];
   }
 
@@ -190,10 +200,21 @@ export class PatientsService {
       throw new Error('Patient already assigned to a doctor');
     }
 
-    return this.prisma.patient.update({
+    const updated = await this.prisma.patient.update({
       where: { id: patientId },
       data: { doctorId },
     });
+
+    // Broadcast patient assignment event
+    this.queueGateway.broadcastQueueUpdate({
+      type: 'patient_updated',
+      patientId: updated.id,
+      patientToken: updated.token,
+      doctorId: updated.doctorId,
+      data: updated,
+    });
+
+    return updated;
   }
 
   // Get queue statistics

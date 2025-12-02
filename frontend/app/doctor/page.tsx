@@ -12,9 +12,12 @@ import {
   RefreshCw,
   Clock,
   Activity,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import PatientQueue from "@/components/PatientQueue";
 import ConsultationPanel from "@/components/ConsultationPanel";
+import { useQueueUpdates } from "@/hooks/useQueueUpdates";
 
 export default function DoctorDashboard() {
   const router = useRouter();
@@ -23,6 +26,25 @@ export default function DoctorDashboard() {
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
+
+  // WebSocket connection for real-time queue updates
+  const { isConnected } = useQueueUpdates({
+    onQueueUpdate: (event) => {
+      console.log("🔔 Real-time queue update:", event);
+      // Auto-refresh queue and stats when any patient update occurs
+      fetchQueue();
+      fetchStats();
+
+      // Show toast notification for important events
+      if (event.type === "patient_added") {
+        toast.success(`New patient added: Token #${event.patientToken}`);
+      } else if (event.type === "stage_changed" && event.doctorId === user?.id) {
+        toast.info(`Patient #${event.patientToken} moved to ${event.stage}`);
+      }
+    },
+    doctorId: user?.id,
+    autoConnect: isAuthenticated,
+  });
 
   useEffect(() => {
     initAuth();
@@ -122,6 +144,27 @@ export default function DoctorDashboard() {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* WebSocket Status Indicator */}
+              <div
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+                  isConnected
+                    ? "bg-green-100 text-green-700"
+                    : "bg-red-100 text-red-700"
+                }`}
+              >
+                {isConnected ? (
+                  <>
+                    <Wifi className="w-4 h-4" />
+                    <span className="text-xs font-medium">Live</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-4 h-4" />
+                    <span className="text-xs font-medium">Offline</span>
+                  </>
+                )}
+              </div>
+
               <button
                 onClick={fetchQueue}
                 className="btn-secondary flex items-center gap-2"
