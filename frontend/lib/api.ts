@@ -169,6 +169,40 @@ class ApiClient {
     });
     return response.data;
   }
+
+  // Vitals
+  async getVitalsQueue() {
+    const response = await this.client.get('/vitals/queue/pending');
+    return response.data;
+  }
+
+  async createOrUpdateVitals(data: {
+    patientId: string;
+    bp: string;
+    pulse: number;
+    temperature: number;
+    spo2: number;
+    height: number;
+    weight: number;
+    chiefComplaint: string;
+    allergies?: string;
+    recordedById: string;
+  }) {
+    const response = await this.client.post('/vitals', data);
+    return response.data;
+  }
+
+  async getVitalsByPatientId(patientId: string) {
+    const response = await this.client.get(`/vitals/${patientId}`);
+    return response.data;
+  }
+
+  async completeVitals(patientId: string, performedBy: string) {
+    const response = await this.client.post(`/workflow/patients/${patientId}/complete-vitals`, {
+      performedBy,
+    });
+    return response.data;
+  }
 }
 
 export const api = new ApiClient();

@@ -6,8 +6,11 @@ import {
   Body,
   Param,
   UseGuards,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { PrescriptionsService } from './prescriptions.service';
+import { PdfService } from './pdf.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -19,7 +22,10 @@ import { AddPrescriptionItemDto } from './dto/add-item.dto';
 @Controller('prescriptions')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class PrescriptionsController {
-  constructor(private readonly prescriptionsService: PrescriptionsService) {}
+  constructor(
+    private readonly prescriptionsService: PrescriptionsService,
+    private readonly pdfService: PdfService,
+  ) {}
 
   /**
    * ⭐ Create prescription with auto-calculated quantities
@@ -99,5 +105,18 @@ export class PrescriptionsController {
     @CurrentUser() user: any,
   ) {
     return this.prescriptionsService.repeatPrescription(prescriptionId, user.id);
+  }
+
+  /**
+   * Download prescription as PDF
+   * GET /api/prescriptions/:id/pdf
+   */
+  @Get(':id/pdf')
+  @Roles(UserRole.DOCTOR, UserRole.ADMIN)
+  async downloadPrescriptionPDF(
+    @Param('id') prescriptionId: string,
+    @Res() res: Response,
+  ) {
+    return this.pdfService.generatePrescriptionPDF(prescriptionId, res);
   }
 }

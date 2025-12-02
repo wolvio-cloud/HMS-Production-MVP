@@ -10,39 +10,28 @@ import {
   Users,
   LogOut,
   RefreshCw,
-  Clock,
   Activity,
+  Heart,
+  Thermometer,
   Wifi,
   WifiOff,
 } from "lucide-react";
-import PatientQueue from "@/components/PatientQueue";
-import ConsultationPanel from "@/components/ConsultationPanel";
 import { useQueueUpdates } from "@/hooks/useQueueUpdates";
+import VitalsEntryForm from "@/components/VitalsEntryForm";
 
-export default function DoctorDashboard() {
+export default function NurseConsole() {
   const router = useRouter();
   const { user, isAuthenticated, logout, initAuth } = useAuthStore();
   const [queue, setQueue] = useState<any[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<any>(null);
 
   // WebSocket connection for real-time queue updates
   const { isConnected } = useQueueUpdates({
     onQueueUpdate: (event) => {
-      console.log("🔔 Real-time queue update:", event);
-      // Auto-refresh queue and stats when any patient update occurs
+      console.log("🔔 Nurse Console: Real-time queue update:", event);
       fetchQueue();
-      fetchStats();
-
-      // Show toast notification for important events
-      if (event.type === "patient_added") {
-        toast.success(`New patient added: Token #${event.patientToken}`);
-      } else if (event.type === "stage_changed" && event.doctorId === user?.id) {
-        toast.info(`Patient #${event.patientToken} moved to ${event.stage}`);
-      }
     },
-    doctorId: user?.id,
     autoConnect: isAuthenticated,
   });
 
@@ -52,46 +41,31 @@ export default function DoctorDashboard() {
       router.push("/login");
       return;
     }
+
+    // Only nurses can access this page
+    if (user?.role !== "NURSE") {
+      toast.error("Access denied: Nurses only");
+      router.push("/login");
+      return;
+    }
+
     fetchQueue();
-    fetchStats();
-  }, [isAuthenticated, router, initAuth]);
+  }, [isAuthenticated, user, router, initAuth]);
 
   const fetchQueue = async () => {
     try {
-      const data = await api.getMyQueue();
+      const data = await api.getVitalsQueue();
       setQueue(data);
     } catch (error) {
-      console.error("Error fetching queue:", error);
+      console.error("Error fetching vitals queue:", error);
       toast.error("Failed to load patient queue");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      const data = await api.getQueueStats();
-      setStats(data);
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-    }
-  };
-
-  const handleSelectPatient = async (patient: any) => {
-    try {
-      // Lock patient if in general queue
-      if (!patient.doctorId) {
-        await api.lockPatient(patient.id);
-        toast.success(`Patient ${patient.name} assigned to you`);
-      }
-
-      // Fetch full patient details
-      const fullPatient = await api.getPatientById(patient.id);
-      setSelectedPatient(fullPatient);
-    } catch (error: any) {
-      console.error("Error selecting patient:", error);
-      toast.error(error.response?.data?.message || "Failed to select patient");
-    }
+  const handleSelectPatient = (patient: any) => {
+    setSelectedPatient(patient);
   };
 
   const handleLogout = () => {
@@ -99,11 +73,10 @@ export default function DoctorDashboard() {
     router.push("/login");
   };
 
-  const handleConsultationComplete = () => {
+  const handleVitalsComplete = () => {
     setSelectedPatient(null);
     fetchQueue();
-    fetchStats();
-    toast.success("Consultation completed successfully!");
+    toast.success("Vitals recorded successfully!");
   };
 
   if (loading) {
@@ -127,18 +100,15 @@ export default function DoctorDashboard() {
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <Activity className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl flex items-center justify-center">
+                <Heart className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">
-                  Doctor Console
+                  Nurse Console
                 </h1>
                 <p className="text-sm text-gray-600">
-                  Welcome, Dr. {user?.name || "Doctor"} •{" "}
-                  <span className="text-indigo-600 font-medium">
-                    {user?.specialty || "General"}
-                  </span>
+                  Welcome, {user?.name || "Nurse"} • Vitals Entry Station
                 </p>
               </div>
             </div>
@@ -182,35 +152,20 @@ export default function DoctorDashboard() {
             </div>
           </div>
 
-          {/* Stats Bar */}
-          {stats && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-              <div className="bg-white/50 rounded-xl p-4 text-center">
-                <p className="text-sm text-gray-600">Waiting</p>
-                <p className="text-2xl font-bold text-indigo-600">
-                  {stats.doctor || 0}
+          {/* Queue Stats */}
+          <div className="mt-6 bg-white/50 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Activity className="w-5 h-5 text-indigo-600" />
+                <p className="text-sm text-gray-600">
+                  Patients Waiting for Vitals:
                 </p>
               </div>
-              <div className="bg-white/50 rounded-xl p-4 text-center">
-                <p className="text-sm text-gray-600">Lab Pending</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {stats.lab || 0}
-                </p>
-              </div>
-              <div className="bg-white/50 rounded-xl p-4 text-center">
-                <p className="text-sm text-gray-600">Pharmacy</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {stats.pharmacy || 0}
-                </p>
-              </div>
-              <div className="bg-white/50 rounded-xl p-4 text-center">
-                <p className="text-sm text-gray-600">Completed Today</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {stats.completedToday || 0}
-                </p>
-              </div>
+              <p className="text-3xl font-bold text-indigo-600">
+                {queue.length}
+              </p>
             </div>
-          )}
+          </div>
         </motion.div>
 
         {/* Main Content */}
@@ -222,14 +177,49 @@ export default function DoctorDashboard() {
             transition={{ delay: 0.1 }}
             className="lg:col-span-1"
           >
-            <PatientQueue
-              queue={queue}
-              selectedPatient={selectedPatient}
-              onSelectPatient={handleSelectPatient}
-            />
+            <div className="glass-card p-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Patient Queue
+              </h2>
+
+              {queue.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No patients waiting</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto">
+                  {queue.map((patient) => (
+                    <button
+                      key={patient.id}
+                      onClick={() => handleSelectPatient(patient)}
+                      className={`w-full text-left p-4 rounded-xl transition-all duration-200 ${
+                        selectedPatient?.id === patient.id
+                          ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-lg scale-105"
+                          : "bg-white/60 hover:bg-white/80 hover:shadow-md"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-lg font-bold">
+                          #{patient.token}
+                        </span>
+                        <span className="text-xs opacity-75">
+                          {new Date(patient.registeredAt).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <p className="font-semibold">{patient.name}</p>
+                      <p className="text-sm opacity-75">
+                        Age: {patient.age} • {patient.gender}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </motion.div>
 
-          {/* Consultation Panel - Right Side */}
+          {/* Vitals Entry Form - Right Side */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -237,19 +227,19 @@ export default function DoctorDashboard() {
             className="lg:col-span-2"
           >
             {selectedPatient ? (
-              <ConsultationPanel
+              <VitalsEntryForm
                 patient={selectedPatient}
-                onComplete={handleConsultationComplete}
+                onComplete={handleVitalsComplete}
                 onCancel={() => setSelectedPatient(null)}
               />
             ) : (
               <div className="glass-card p-12 text-center">
-                <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <Thermometer className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-gray-600 mb-2">
                   No Patient Selected
                 </h3>
                 <p className="text-gray-500">
-                  Select a patient from the queue to start consultation
+                  Select a patient from the queue to record vitals
                 </p>
               </div>
             )}
