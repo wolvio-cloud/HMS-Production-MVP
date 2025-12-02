@@ -10,6 +10,7 @@ import { PharmacyModule } from './pharmacy/pharmacy.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { LabModule } from './lab/lab.module';
 import { WorkflowModule } from './workflow/workflow.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { WorkflowModule } from './workflow/workflow.module';
 
     // Core modules
     PrismaModule,
+    EventsModule,
 
     // Feature modules
     AuthModule,

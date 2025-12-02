@@ -6,10 +6,14 @@ import {
   DoctorSpecialty,
   UserRole,
 } from '@prisma/client';
+import { QueueGateway } from '../events/queue.gateway';
 
 @Injectable()
 export class PatientsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private queueGateway: QueueGateway,
+  ) {}
 
   // ⭐ KEY METHOD: Get queue for doctor
   async getQueueForDoctor(
