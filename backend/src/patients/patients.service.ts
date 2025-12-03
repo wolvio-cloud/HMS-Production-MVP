@@ -226,9 +226,12 @@ export class PatientsService {
           status: PatientStatus.IN_PROGRESS,
         },
       }),
+      // Count both DOCTOR_PENDING and DOCTOR_REVIEW_PENDING for doctor queue
       this.prisma.patient.count({
         where: {
-          stage: PatientStage.DOCTOR_PENDING,
+          stage: {
+            in: [PatientStage.DOCTOR_PENDING, PatientStage.DOCTOR_REVIEW_PENDING],
+          },
           status: PatientStatus.IN_PROGRESS,
         },
       }),
