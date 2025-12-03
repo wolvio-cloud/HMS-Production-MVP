@@ -110,15 +110,15 @@ export default function ConsultationPanel({
   };
 
   return (
-    <div className="glass-card p-6 h-[calc(100vh-240px)] flex flex-col">
-      {/* Patient Info & Vitals */}
+    <div className="glass-card p-6 flex flex-col max-h-[calc(100vh-200px)]">
+      {/* Patient Info & Vitals - Compact */}
       <PatientInfo patient={patient} />
 
       {/* Tabs */}
-      <div className="flex gap-4 mb-6 border-b border-gray-200">
+      <div className="flex gap-4 mb-4 border-b border-gray-200">
         <button
           onClick={() => setActiveTab("prescription")}
-          className={`pb-3 px-2 font-medium transition-all ${
+          className={`pb-2 px-2 text-sm font-medium transition-all ${
             activeTab === "prescription"
               ? "text-indigo-600 border-b-2 border-indigo-600"
               : "text-gray-500 hover:text-gray-700"
@@ -128,7 +128,7 @@ export default function ConsultationPanel({
         </button>
         <button
           onClick={() => setActiveTab("history")}
-          className={`pb-3 px-2 font-medium transition-all ${
+          className={`pb-2 px-2 text-sm font-medium transition-all ${
             activeTab === "history"
               ? "text-indigo-600 border-b-2 border-indigo-600"
               : "text-gray-500 hover:text-gray-700"
@@ -138,8 +138,8 @@ export default function ConsultationPanel({
         </button>
       </div>
 
-      {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+      {/* Tab Content - 2 Column Layout for Prescription */}
+      <div className="flex-1 min-h-0">
         <AnimatePresence mode="wait">
           {activeTab === "prescription" ? (
             <motion.div
@@ -147,52 +147,57 @@ export default function ConsultationPanel({
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
+              className="h-full grid grid-cols-1 lg:grid-cols-2 gap-4"
             >
-              {/* Diagnosis */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Diagnosis
-                </label>
-                <input
-                  type="text"
-                  value={diagnosis}
-                  onChange={(e) => setDiagnosis(e.target.value)}
-                  className="input-glass"
-                  placeholder="Enter diagnosis..."
+              {/* LEFT COLUMN: Diagnosis, Lab, Lifestyle, Notes */}
+              <div className="space-y-4 overflow-y-auto pr-2">
+                {/* Diagnosis */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                    Diagnosis *
+                  </label>
+                  <input
+                    type="text"
+                    value={diagnosis}
+                    onChange={(e) => setDiagnosis(e.target.value)}
+                    className="input-glass text-sm"
+                    placeholder="Enter diagnosis..."
+                  />
+                </div>
+
+                {/* Lab Investigations */}
+                <LabOrders
+                  patientId={patient.id}
+                  tests={labTests}
+                  onTestsChange={setLabTests}
                 />
+
+                {/* Lifestyle & Advice */}
+                <LifestyleAdvice
+                  advice={lifestyleAdvice}
+                  onAdviceChange={setLifestyleAdvice}
+                />
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                    Additional Notes
+                  </label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="input-glass text-sm h-20 resize-none"
+                    placeholder="Type custom advice here..."
+                  />
+                </div>
               </div>
 
-              {/* 1. Medications */}
-              <PrescriptionBuilder
-                patientId={patient.id}
-                items={prescriptionItems}
-                onItemsChange={setPrescriptionItems}
-              />
-
-              {/* 2. Lab Investigations */}
-              <LabOrders
-                patientId={patient.id}
-                tests={labTests}
-                onTestsChange={setLabTests}
-              />
-
-              {/* 3. Lifestyle & Advice */}
-              <LifestyleAdvice
-                advice={lifestyleAdvice}
-                onAdviceChange={setLifestyleAdvice}
-              />
-
-              {/* Notes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Additional Notes
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="input-glass h-24 resize-none"
-                  placeholder="Type custom advice here..."
+              {/* RIGHT COLUMN: Medications */}
+              <div className="overflow-y-auto pr-2">
+                <PrescriptionBuilder
+                  patientId={patient.id}
+                  items={prescriptionItems}
+                  onItemsChange={setPrescriptionItems}
                 />
               </div>
             </motion.div>
@@ -202,7 +207,7 @@ export default function ConsultationPanel({
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="space-y-4"
+              className="h-full overflow-y-auto pr-2 space-y-4"
             >
               <h3 className="font-semibold text-gray-800 mb-3">
                 Previous Prescriptions
@@ -251,21 +256,21 @@ export default function ConsultationPanel({
         </AnimatePresence>
       </div>
 
-      {/* Footer Actions */}
-      <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-200">
-        <p className="text-sm text-gray-500">
+      {/* Footer Actions - Compact */}
+      <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-200">
+        <p className="text-xs text-gray-500">
           Auto-saved <span className="text-indigo-600">2s ago</span>
         </p>
 
-        <div className="flex gap-3">
-          <button onClick={onCancel} className="btn-secondary flex items-center gap-2">
+        <div className="flex gap-2">
+          <button onClick={onCancel} className="btn-secondary flex items-center gap-2 text-sm px-3 py-2">
             <X className="w-4 h-4" />
             Cancel
           </button>
           <button
             onClick={handleFinishConsultation}
             disabled={saving}
-            className="btn-primary flex items-center gap-2 disabled:opacity-50"
+            className="btn-primary flex items-center gap-2 disabled:opacity-50 text-sm px-4 py-2"
           >
             {saving ? (
               <>
@@ -281,11 +286,6 @@ export default function ConsultationPanel({
           </button>
         </div>
       </div>
-
-      {/* Bottom Info */}
-      <p className="text-center text-xs text-indigo-600 mt-3">
-        ✓ Solution: Live Stock, One-Click Labs, Holistic Advice.
-      </p>
     </div>
   );
 }

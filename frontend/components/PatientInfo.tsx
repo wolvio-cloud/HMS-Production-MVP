@@ -6,58 +6,50 @@ interface PatientInfoProps {
 
 export default function PatientInfo({ patient }: PatientInfoProps) {
   return (
-    <div className="mb-6">
-      <div className="flex items-start justify-between mb-4">
+    <div className="mb-3">
+      <div className="flex items-start justify-between mb-2">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">{patient.name}</h2>
-          <p className="text-gray-600">
-            {patient.gender}, {patient.age} Years
+          <h2 className="text-xl font-bold text-gray-800">{patient.name}</h2>
+          <p className="text-sm text-gray-600">
+            {patient.gender}, {patient.age} Years • Mobile: {patient.mobile}
           </p>
         </div>
-        <span className="bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg text-sm font-medium">
-          Token #{patient.token}
+        <span className="bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-lg text-xs font-medium">
+          #{patient.token}
         </span>
       </div>
 
-      {/* Vitals */}
+      {/* Vitals - Compact Inline */}
       {patient.vitals && (
-        <div>
-          <h3 className="text-sm font-medium text-gray-600 uppercase mb-3">
-            Vitals (Just Now)
-          </h3>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="vitals-item">
-              <Heart className="w-5 h-5 text-red-500 mx-auto mb-2" />
-              <p className="text-xs text-gray-600">BP</p>
-              <p className="text-lg font-bold text-indigo-600">
-                {patient.vitals.bloodPressure}
-              </p>
-            </div>
-            <div className="vitals-item">
-              <Thermometer className="w-5 h-5 text-orange-500 mx-auto mb-2" />
-              <p className="text-xs text-gray-600">Temp</p>
-              <p className="text-lg font-bold text-red-600">
-                {patient.vitals.temperature}°F
-              </p>
-            </div>
-            <div className="vitals-item">
-              <Weight className="w-5 h-5 text-blue-500 mx-auto mb-2" />
-              <p className="text-xs text-gray-600">Weight</p>
-              <p className="text-lg font-bold text-gray-800">
-                {patient.vitals.weight} kg
-              </p>
-            </div>
+        <div className="flex items-center gap-4 text-xs bg-white/50 rounded-lg p-2 mb-2">
+          <div className="flex items-center gap-1.5">
+            <Heart className="w-3.5 h-3.5 text-red-500" />
+            <span className="text-gray-600">BP:</span>
+            <span className="font-semibold text-indigo-600">{patient.vitals.bloodPressure}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Thermometer className="w-3.5 h-3.5 text-orange-500" />
+            <span className="text-gray-600">Temp:</span>
+            <span className="font-semibold text-red-600">{patient.vitals.temperature}°F</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5 text-blue-500" />
+            <span className="text-gray-600">Pulse:</span>
+            <span className="font-semibold text-gray-800">{patient.vitals.pulse} bpm</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Weight className="w-3.5 h-3.5 text-green-500" />
+            <span className="text-gray-600">Wt:</span>
+            <span className="font-semibold text-gray-800">{patient.vitals.weight} kg</span>
           </div>
         </div>
       )}
 
-      {/* Chief Complaint */}
+      {/* Chief Complaint - Compact */}
       {patient.chiefComplaint && (
-        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-          <h3 className="text-sm font-medium text-gray-600 uppercase mb-2">
-            Chief Complaint
-          </h3>
-          <p className="text-gray-800 italic">"{patient.chiefComplaint}"</p>
+        <div className="p-2 bg-amber-50/70 border border-amber-200 rounded-lg">
+          <p className="text-xs text-gray-600 font-medium mb-0.5">Chief Complaint:</p>
+          <p className="text-sm text-gray-800 italic">"{patient.chiefComplaint}"</p>
         </div>
       )}
     </div>
