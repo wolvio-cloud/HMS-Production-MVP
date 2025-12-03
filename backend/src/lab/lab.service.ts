@@ -322,14 +322,18 @@ export class LabService {
   /**
    * Create new lab test (admin only)
    */
-  async createLabTest(data: {
-    name: string;
-    description?: string;
-    price: number;
-    turnaroundTime?: string;
-  }) {
-    return this.prisma.labTest.create({
-      data,
-    });
-  }
+async createLabTest(data: {
+  name: string;
+  description?: string;
+  price: number;
+
+  category: string;
+  sampleType: string;
+  tat: number; // turnaround time in minutes
+}) {
+  return this.prisma.labTest.create({
+    data,
+  });
+}
+
 }

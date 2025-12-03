@@ -20,7 +20,7 @@ import { UpdateLabOrderDto } from './dto/update-lab-order.dto';
 @Controller('lab')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class LabController {
-  constructor(private readonly labService: LabService) {}
+  constructor(private readonly labService: LabService) { }
 
   /**
    * Get all available lab tests
@@ -136,9 +136,12 @@ export class LabController {
       name: string;
       description?: string;
       price: number;
-      turnaroundTime?: string;
+      category: string;     // REQUIRED
+      sampleType: string;   // REQUIRED
+      tat: number;          // REQUIRED
     },
   ) {
     return this.labService.createLabTest(data);
   }
+
 }

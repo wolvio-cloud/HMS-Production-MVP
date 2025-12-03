@@ -130,19 +130,25 @@ export class PharmacyController {
    * Create new medicine (admin only)
    * POST /api/pharmacy/medicines
    */
-  @Post('medicines')
-  @Roles(UserRole.ADMIN)
-  async createMedicine(
-    @Body()
-    data: {
-      name: string;
-      genericName?: string;
-      manufacturer?: string;
-      unitPrice: number;
-    },
-  ) {
-    return this.pharmacyService.createMedicine(data);
-  }
+@Post('medicines')
+@Roles(UserRole.ADMIN)
+async createMedicine(
+  @Body()
+  data: {
+    name: string;
+    genericName?: string;
+    manufacturer?: string;
+    unitPrice: number;
+
+    type: string;         // REQUIRED
+    strength: string;     // REQUIRED
+    mrp: number;          // REQUIRED
+    sellingPrice: number; // REQUIRED
+  },
+) {
+  return this.pharmacyService.createMedicine(data);
+}
+
 
   /**
    * Add stock batch (when new stock arrives)

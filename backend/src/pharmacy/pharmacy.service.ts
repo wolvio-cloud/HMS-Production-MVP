@@ -225,21 +225,23 @@ export class PharmacyService {
   /**
    * Add new medicine (admin only)
    */
-  async createMedicine(data: {
-    name: string;
-    genericName?: string;
-    manufacturer?: string;
-    unitPrice: number;
-  }) {
-    const medicine = await this.prisma.medicine.create({
-      data: {
-        ...data,
-        currentStock: 0, // Initially no stock
-      },
-    });
-
-    return medicine;
-  }
+ async createMedicine(data: {
+  name: string;
+  genericName?: string;
+  manufacturer?: string;
+  unitPrice: number;
+  type: string;
+  strength: string;
+  mrp: number;
+  sellingPrice: number;
+}) {
+  return this.prisma.medicine.create({
+    data: {
+      ...data,
+      currentStock: 0,
+    },
+  });
+}
 
   /**
    * Add stock batch (when new stock arrives)
@@ -287,7 +289,7 @@ export class PharmacyService {
         expiryDate: 'asc',
       },
       include: {
-        supplier: true,
+       // supplier: true,
       },
     });
   }
