@@ -1,9 +1,12 @@
-import { IsUUID, IsOptional, IsString, IsArray, ValidateNested } from 'class-validator';
+import { IsUUID, IsOptional, IsString, IsArray, ValidateNested,IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class PrescriptionItemDto {
   @IsUUID()
   medicineId: string;
+
+  @IsNumber()
+  quantity: number;
 
   @IsString()
   dosage: string; // e.g., "1 tablet", "5ml"

@@ -13,7 +13,7 @@ export class PrescriptionsService {
   constructor(
     private prisma: PrismaService,
     private stockService: StockService,
-  ) {}
+  ) { }
 
   /**
    * ⭐ Auto-calculate quantity from dosage, frequency, and duration
@@ -78,33 +78,41 @@ export class PrescriptionsService {
     }
 
     // Calculate quantities for all items
+    // 2️⃣ Build Prisma items (safe)
     const itemsWithQuantity = items.map((item) => {
+      const durationStr = item.duration;            // string for calculation ("5 days" or "5")
+      const durationNum = parseInt(item.duration);  // number for Prisma (5)
+
       const quantity = this.calculateQuantity(
         item.dosage,
         item.frequency,
-        item.duration,
+        durationStr,  // calculateQuantity expects string
       );
 
       return {
-        medicineId: item.medicineId,
         dosage: item.dosage,
         frequency: item.frequency,
-        duration: item.duration,
+        duration: durationNum,  // Prisma expects Int
         quantity,
         instructions: item.instructions,
+        medicine: {
+          connect: { id: item.medicineId },
+        },
       };
     });
 
+
     // Check stock availability for all items
     const stockChecks = await Promise.all(
-      itemsWithQuantity.map((item) =>
+      items.map((item) =>
         this.stockService.hasSufficientStock(item.medicineId, item.quantity),
       ),
     );
 
-    const insufficientItems = itemsWithQuantity
+    const insufficientItems = items
       .map((item, index) => ({
         item,
+        quantity: itemsWithQuantity[index].quantity,
         stockCheck: stockChecks[index],
       }))
       .filter((x) => !x.stockCheck.sufficient);
@@ -215,7 +223,7 @@ export class PrescriptionsService {
         medicineId: addItemDto.medicineId,
         dosage: addItemDto.dosage,
         frequency: addItemDto.frequency,
-        duration: addItemDto.duration,
+        duration: Number(addItemDto.duration),
         quantity,
         instructions: addItemDto.instructions,
       },

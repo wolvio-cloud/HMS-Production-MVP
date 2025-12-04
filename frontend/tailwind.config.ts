@@ -9,6 +9,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        border: "#e5e7eb", // or whatever color you want
         primary: {
           50: "#f0f4ff",
           100: "#e0e9ff",

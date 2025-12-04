@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, X, Printer } from "lucide-react";
 import PatientInfo from "./PatientInfo";
@@ -9,13 +9,7 @@ import LabOrders from "./LabOrders";
 import LifestyleAdvice from "./LifestyleAdvice";
 import toast from "react-hot-toast";
 import { api } from "@/lib/api";
-
-interface ConsultationPanelProps {
-  patient: any;
-  onComplete: () => void;
-  onCancel: () => void;
-}
-
+// ...existing code...
 export default function ConsultationPanel({
   patient,
   onComplete,
@@ -29,18 +23,83 @@ export default function ConsultationPanel({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // New UX states
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const DRAFT_KEY = `consultation_draft_${patient.id}`;
+
+  // Load draft on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        setPrescriptionItems(draft.prescriptionItems || []);
+        setLabTests(draft.labTests || []);
+        setLifestyleAdvice(draft.lifestyleAdvice || []);
+        setDiagnosis(draft.diagnosis || "");
+        setNotes(draft.notes || "");
+        setLastSavedAt(draft.savedAt || Date.now());
+      }
+    } catch (e) {
+      console.warn("Failed to load draft:", e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveDraft = () => {
+    try {
+      const payload = {
+        prescriptionItems,
+        labTests,
+        lifestyleAdvice,
+        diagnosis,
+        notes,
+        savedAt: Date.now(),
+      };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+      setLastSavedAt(payload.savedAt);
+      toast.dismiss();
+      toast.success("Draft saved", { duration: 1000 });
+    } catch (e) {
+      console.warn("Failed to save draft:", e);
+    }
+  };
+
+  // Debounced autosave when inputs change
+  useEffect(() => {
+    const t = setTimeout(() => saveDraft(), 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prescriptionItems, labTests, lifestyleAdvice, diagnosis, notes]);
+
+  // Periodic autosave as safety net
+  useEffect(() => {
+    const interval = setInterval(() => saveDraft(), 15000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keyboard shortcut: Ctrl/Cmd + Enter to finish
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        handleFinishConsultation();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prescriptionItems, labTests, diagnosis, notes, lifestyleAdvice, saving]);
+
   const handlePrintPrescription = async (prescriptionId: string) => {
     try {
       toast.loading("Generating prescription PDF...");
-
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
       const token = localStorage.getItem("hms_token");
-
-      // Fetch PDF with proper authentication
       const response = await fetch(`${API_URL}/prescriptions/${prescriptionId}/pdf`, {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -48,18 +107,26 @@ export default function ConsultationPanel({
         throw new Error("Failed to generate PDF");
       }
 
-      // Convert response to blob
       const blob = await response.blob();
 
-      // Create blob URL and open in new tab
+      // Try derive filename from headers
+      const disposition = response.headers.get("content-disposition") || "";
+      let filename = `prescription-${prescriptionId}.pdf`;
+      const match = /filename\*?=(?:UTF-8'')?["']?([^;"']+)/i.exec(disposition);
+      if (match && match[1]) filename = decodeURIComponent(match[1]);
+
       const blobUrl = window.URL.createObjectURL(blob);
-      window.open(blobUrl, "_blank");
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      a.target = "_blank";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
 
-      // Clean up blob URL after a delay
       setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
-
       toast.dismiss();
-      toast.success("Prescription PDF opened!");
+      toast.success("Prescription PDF downloaded/opened!");
     } catch (error) {
       toast.dismiss();
       toast.error("Failed to generate prescription PDF");
@@ -72,6 +139,12 @@ export default function ConsultationPanel({
       toast.error("Please add at least one prescription or lab test");
       return;
     }
+
+    // Confirm before finalizing
+    const ok = window.confirm(
+      "Finish consultation and route patient to the next stage? This action cannot be undone."
+    );
+    if (!ok) return;
 
     setSaving(true);
     try {
@@ -97,20 +170,33 @@ export default function ConsultationPanel({
       // Auto-route patient to next stage
       await api.autoRoutePatient(patient.id);
 
+      // Clear draft on success
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+      } catch {}
+
       toast.success("Consultation completed! Patient routed to next stage.");
       onComplete();
     } catch (error: any) {
       console.error("Error finishing consultation:", error);
-      toast.error(
-        error.response?.data?.message || "Failed to complete consultation"
-      );
+      toast.error(error?.response?.data?.message || "Failed to complete consultation");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="glass-card p-6 h-[calc(100vh-240px)] flex flex-col">
+    <div className="glass-card p-6 h-[calc(100vh-240px)] flex flex-col relative">
+      {/* Saving overlay */}
+      {saving && (
+        <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-50">
+          <div className="flex items-center gap-3">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600" />
+            <span className="text-sm font-medium text-gray-700">Saving consultation...</span>
+          </div>
+        </div>
+      )}
+
       {/* Patient Info & Vitals */}
       <PatientInfo patient={patient} />
 
@@ -123,6 +209,7 @@ export default function ConsultationPanel({
               ? "text-indigo-600 border-b-2 border-indigo-600"
               : "text-gray-500 hover:text-gray-700"
           }`}
+          aria-pressed={activeTab === "prescription"}
         >
           Prescription & Advice
         </button>
@@ -133,6 +220,7 @@ export default function ConsultationPanel({
               ? "text-indigo-600 border-b-2 border-indigo-600"
               : "text-gray-500 hover:text-gray-700"
           }`}
+          aria-pressed={activeTab === "history"}
         >
           Medical History
         </button>
@@ -160,6 +248,7 @@ export default function ConsultationPanel({
                   onChange={(e) => setDiagnosis(e.target.value)}
                   className="input-glass"
                   placeholder="Enter diagnosis..."
+                  aria-label="Diagnosis"
                 />
               </div>
 
@@ -193,6 +282,7 @@ export default function ConsultationPanel({
                   onChange={(e) => setNotes(e.target.value)}
                   className="input-glass h-24 resize-none"
                   placeholder="Type custom advice here..."
+                  aria-label="Additional notes"
                 />
               </div>
             </motion.div>
@@ -254,7 +344,11 @@ export default function ConsultationPanel({
       {/* Footer Actions */}
       <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-200">
         <p className="text-sm text-gray-500">
-          Auto-saved <span className="text-indigo-600">2s ago</span>
+          {lastSavedAt ? (
+            <>Auto-saved <span className="text-indigo-600">{new Date(lastSavedAt).toLocaleTimeString()}</span></>
+          ) : (
+            <>No draft saved yet</>
+          )}
         </p>
 
         <div className="flex gap-3">
@@ -264,8 +358,9 @@ export default function ConsultationPanel({
           </button>
           <button
             onClick={handleFinishConsultation}
-            disabled={saving}
+            disabled={saving || (prescriptionItems.length === 0 && labTests.length === 0)}
             className="btn-primary flex items-center gap-2 disabled:opacity-50"
+            title={prescriptionItems.length === 0 && labTests.length === 0 ? "Add a prescription or lab test before finishing" : "Finish consultation (Ctrl/Cmd + Enter)"}
           >
             {saving ? (
               <>

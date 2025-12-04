@@ -68,6 +68,7 @@ model Patient {
   gender    Gender
   mobile    String
   address   String?
+  clinicalNotes String? 
 
   // Workflow State
   stage              PatientStage  @default(VITALS_PENDING)
@@ -201,7 +202,6 @@ model Prescription {
 
   diagnosis   String?
   notes       String?
-
   items       PrescriptionItem[]
 
   createdAt   DateTime @default(now())
@@ -217,12 +217,13 @@ model PrescriptionItem {
   prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
 
   medicineId     String
-  medicine       Medicine     @relation(fields: [medicineId], references: [id])
+  medicine       Medicine     @relation(fields: [medicineId], references: [id]) 
 
-  dosage         String       // "1-0-1"
+  dosage         String       // "1-0-1" 
   duration       Int          // days
   quantity       Int          // auto-calculated
-  instructions   String?      // "After food"
+  instructions   String?      //  "After food "
+  frequency      String?
 
   dispensed      Boolean      @default(false)
 
@@ -253,6 +254,7 @@ model LabOrder {
   test       LabTest   @relation(fields: [testId], references: [id])
 
   doctorId   String
+  clinicalNotes String? 
   doctor     User      @relation("OrderedBy", fields: [doctorId], references: [id])
 
   sampleId   String?   @unique
@@ -261,6 +263,8 @@ model LabOrder {
   orderedAt  DateTime  @default(now())
   collectedAt DateTime?
   completedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([patientId, status])
   @@map("lab_orders")
