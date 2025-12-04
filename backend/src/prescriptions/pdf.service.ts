@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class PdfService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Generate prescription PDF
@@ -213,8 +213,8 @@ export class PdfService {
         .fillColor('#1F2937')
         .text(item.medicine.name, 60, yPosition + 10, { width: 150 })
         .text(item.dosage, 220, yPosition + 10, { width: 80 })
-        .text(item.frequency, 310, yPosition + 10, { width: 100 })
-        .text(item.duration, 420, yPosition + 10, { width: 100 });
+        .text(String(item.frequency), 310, yPosition + 10, { width: 100 })
+        .text(String(item.duration), 420, yPosition + 10, { width: 100 });
 
       yPosition += 30;
 

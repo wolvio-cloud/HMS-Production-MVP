@@ -1,4 +1,4 @@
-import { IsUUID, IsString, IsOptional } from 'class-validator';
+import { IsUUID, IsString, IsOptional, IsNumber } from 'class-validator';
 
 export class AddPrescriptionItemDto {
   @IsUUID()
@@ -12,6 +12,9 @@ export class AddPrescriptionItemDto {
 
   @IsString()
   duration: string; // e.g., "5 days", "2 weeks"
+
+  @IsNumber()
+  quantity: number;
 
   @IsOptional()
   @IsString()

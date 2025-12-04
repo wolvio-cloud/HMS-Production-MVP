@@ -82,7 +82,7 @@ export class LabService {
     // Calculate total cost
     const totalCost = tests.reduce((sum, test) => sum + test.price, 0);
 
-    // Create lab orders (one for each test)
+    // Create lab orders (one for each test )
     const orders = await Promise.all(
       testIds.map((testId) =>
         this.prisma.labOrder.create({
