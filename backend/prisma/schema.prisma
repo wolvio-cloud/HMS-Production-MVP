@@ -88,6 +88,7 @@ model Patient {
   prescriptions  Prescription[]
   labOrders      LabOrder[]
   stateHistory   PatientStateHistory[]
+  visits         Visit[]    // Patient can have multiple visits (encounters)
 
   @@index([stage, status, doctorId])
   @@index([stage, status, consultationType])
@@ -294,4 +295,310 @@ model PatientStateHistory {
 
   @@index([patientId, timestamp])
   @@map("patient_state_history")
+}
+
+// ============ VISIT & BILLING (SPRINT 1) ============
+
+// Visit: Central encounter tracking - replaces ad-hoc queue logic
+model Visit {
+  id        String      @id @default(cuid())
+  patientId String
+  patient   Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  visitType VisitType   @default(OPD)
+
+  // Timestamps
+  arrivedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  // Relations to all services consumed during this visit
+  billings    Billing[]
+
+  @@index([patientId, arrivedAt])
+  @@map("visits")
+}
+
+enum VisitType {
+  OPD           // Out-patient
+  IPD           // In-patient (future)
+  EMERGENCY     // Emergency (future)
+}
+
+// Billing: Bill header with totals
+model Billing {
+  id       String       @id @default(cuid())
+  visitId  String
+  visit    Visit        @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  // Billing info
+  billNumber String      @unique // Auto-generated: HMS/2024/0001
+
+  // Financial Summary
+  subtotal   Float       // Sum of all line items (before tax)
+  taxAmount  Float       // Total tax (GST)
+  discount   Float       @default(0)
+  total      Float       // Final amount to pay
+  balance    Float       // Outstanding amount (total - paid)
+
+  status     BillingStatus @default(PENDING)
+
+  // Audit
+  generatedBy String?    // User ID who generated bill
+  generatedAt DateTime   @default(now())
+  paidAt      DateTime?
+
+  // Relations
+  items            BillingItem[]
+  payments         Payment[]
+  creditBilling    CreditBilling?    // Optional: Only for insurance bills
+  refunds          Refund[]          // Can have multiple refund requests
+  discounts        Discount[]        // Can have multiple discount requests
+  outstandingBill  OutstandingBill?  // Optional: Only if unpaid
+
+  @@index([visitId])
+  @@index([billNumber])
+  @@index([status])
+  @@map("billings")
+}
+
+enum BillingStatus {
+  PENDING       // Generated but not paid
+  PARTIAL       // Partially paid
+  PAID          // Fully paid
+  CANCELLED     // Cancelled
+}
+
+// BillingItem: Line items with tax logic
+model BillingItem {
+  id         String   @id @default(cuid())
+  billingId  String
+  billing    Billing  @relation(fields: [billingId], references: [id], onDelete: Cascade)
+
+  // Item details
+  itemType   BillingItemType
+  itemId     String?  // Reference to Prescription/LabOrder/etc (optional)
+  description String  // "Paracetamol 500mg", "CBC Test", "Consultation Fee"
+
+  // Pricing
+  quantity   Int      @default(1)
+  unitPrice  Float    // Price per unit
+  amount     Float    // quantity × unitPrice
+
+  // Tax logic (CRITICAL for India GST)
+  isTaxInclusive Boolean @default(false)  // TRUE for Pharmacy MRP, FALSE for Services
+  taxRate        Float   @default(0)      // 12% for medicines, 18% for services
+  taxAmount      Float   @default(0)      // Calculated tax
+
+  total      Float    // Final line total (amount + tax if exclusive, amount if inclusive)
+
+  @@index([billingId])
+  @@map("billing_items")
+}
+
+enum BillingItemType {
+  CONSULTATION   // Doctor consultation fee
+  MEDICINE       // Pharmacy items
+  LAB_TEST       // Lab investigations
+  PROCEDURE      // Medical procedures (future)
+  BED_CHARGES    // IPD bed charges (future)
+}
+
+// Payment: Track all payments for a bill
+model Payment {
+  id         String      @id @default(cuid())
+  billingId  String
+  billing    Billing     @relation(fields: [billingId], references: [id], onDelete: Cascade)
+
+  amount     Float
+  mode       PaymentMode
+
+  // Payment details
+  transactionId String?  // For UPI/Card/Razorpay
+  upiId         String?  // For UPI payments
+  cardLast4     String?  // For card payments
+
+  // Razorpay integration
+  razorpayOrderId   String?  // Razorpay order ID
+  razorpayPaymentId String?  // Razorpay payment ID
+  razorpaySignature String?  // Razorpay signature for verification
+
+  status     PaymentStatus @default(PENDING)
+
+  // Audit
+  recordedBy String?    // User ID who recorded payment
+  recordedAt DateTime   @default(now())
+  remarks    String?
+
+  @@index([billingId])
+  @@index([transactionId])
+  @@map("payments")
+}
+
+enum PaymentMode {
+  CASH
+  CARD
+  UPI
+  RAZORPAY_LINK  // Payment link sent to patient
+  INSURANCE      // TPA/Insurance (future)
+}
+
+enum PaymentStatus {
+  PENDING        // Payment initiated
+  SUCCESS        // Payment successful
+  FAILED         // Payment failed
+  REFUNDED       // Payment refunded
+}
+
+// ============ BILLING EXTENDED (SPRINT 1) ============
+
+// CreditBilling: Insurance/TPA billing tracking
+model CreditBilling {
+  id         String   @id @default(cuid())
+  billingId  String   @unique
+  billing    Billing  @relation(fields: [billingId], references: [id], onDelete: Cascade)
+
+  // Insurance/TPA Details
+  insuranceProvider String   // "ICICI Lombard", "Star Health"
+  policyNumber      String
+  claimNumber       String?  // TPA claim number
+
+  // Approval Details
+  approvalCode      String?  // Pre-authorization code
+  approvedAmount    Float?   // Amount approved by TPA
+  patientShare      Float?   // Co-pay amount (patient pays)
+  insuranceShare    Float?   // Amount to be claimed from insurance
+
+  status            CreditStatus @default(PENDING)
+
+  // Audit
+  submittedAt       DateTime?
+  approvedAt        DateTime?
+  settledAt         DateTime?
+  remarks           String?
+
+  @@index([billingId])
+  @@index([claimNumber])
+  @@map("credit_billings")
+}
+
+enum CreditStatus {
+  PENDING           // Submitted to TPA
+  APPROVED          // TPA approved
+  PARTIALLY_APPROVED // Partial approval
+  REJECTED          // TPA rejected
+  SETTLED           // Payment received from TPA
+}
+
+// Refund: Refund approval workflow
+model Refund {
+  id         String      @id @default(cuid())
+  billingId  String
+  billing    Billing     @relation(fields: [billingId], references: [id], onDelete: Cascade)
+
+  paymentId  String?     // Original payment being refunded
+
+  amount     Float       // Refund amount
+  reason     String      // "Cancelled appointment", "Duplicate payment"
+
+  status     RefundStatus @default(PENDING)
+
+  // Approval Workflow
+  requestedBy   String    // User ID who requested
+  requestedAt   DateTime  @default(now())
+
+  approvedBy    String?   // Manager/Admin who approved
+  approvedAt    DateTime?
+
+  processedBy   String?   // Billing staff who processed
+  processedAt   DateTime?
+
+  rejectionReason String?
+
+  @@index([billingId])
+  @@index([status])
+  @@map("refunds")
+}
+
+enum RefundStatus {
+  PENDING       // Awaiting approval
+  APPROVED      // Manager approved
+  REJECTED      // Manager rejected
+  PROCESSED     // Refund completed
+}
+
+// Discount: Manager-approved discounts
+model Discount {
+  id         String   @id @default(cuid())
+  billingId  String
+  billing    Billing  @relation(fields: [billingId], references: [id], onDelete: Cascade)
+
+  discountType   DiscountType
+  amount         Float        // Discount amount
+  percentage     Float?       // Discount percentage (if applicable)
+
+  reason         String       // "Senior citizen", "Staff family", "CSR"
+
+  status         DiscountStatus @default(PENDING)
+
+  // Approval Workflow
+  requestedBy    String       // Billing staff who requested
+  requestedAt    DateTime     @default(now())
+
+  approvedBy     String?      // Manager who approved
+  approvedAt     DateTime?
+
+  rejectionReason String?
+
+  @@index([billingId])
+  @@index([status])
+  @@map("discounts")
+}
+
+enum DiscountType {
+  FLAT          // Flat amount discount
+  PERCENTAGE    // Percentage-based discount
+  SENIOR_CITIZEN // Senior citizen discount
+  STAFF         // Staff/employee discount
+  CSR           // Corporate social responsibility
+}
+
+enum DiscountStatus {
+  PENDING       // Awaiting approval
+  APPROVED      // Manager approved
+  REJECTED      // Manager rejected
+}
+
+// OutstandingBill: Track unpaid dues
+model OutstandingBill {
+  id         String   @id @default(cuid())
+  billingId  String   @unique
+  billing    Billing  @relation(fields: [billingId], references: [id], onDelete: Cascade)
+
+  patientId  String   // For easy querying of patient dues
+
+  outstandingAmount Float  // Balance amount
+  dueDate           DateTime?
+
+  // Follow-up tracking
+  lastFollowUpDate  DateTime?
+  nextFollowUpDate  DateTime?
+  followUpNotes     String?
+
+  status            OutstandingStatus @default(ACTIVE)
+
+  // Audit
+  createdAt         DateTime @default(now())
+  settledAt         DateTime?
+
+  @@index([billingId])
+  @@index([patientId])
+  @@index([status])
+  @@map("outstanding_bills")
+}
+
+enum OutstandingStatus {
+  ACTIVE        // Has outstanding balance
+  PARTIAL       // Partially paid
+  SETTLED       // Fully paid
+  WRITTEN_OFF   // Bad debt written off
 }

@@ -12,6 +12,7 @@ import { LabModule } from './lab/lab.module';
 import { WorkflowModule } from './workflow/workflow.module';
 import { EventsModule } from './events/events.module';
 import { VitalsModule } from './vitals/vitals.module';
+import { BillingModule } from './billing/billing.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { VitalsModule } from './vitals/vitals.module';
     PrescriptionsModule,
     LabModule,
     WorkflowModule,
+    BillingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
