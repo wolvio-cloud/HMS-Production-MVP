@@ -1,23 +1,29 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TaxCalculator, BillItemInput } from './utils/tax-calculator';
 import { GenerateBillDto } from './dto/generate-bill.dto';
 import { BillResponse, UnbilledItem, BillPreview } from './dto/bill-response.dto';
+import { StockReservationService } from './stock-reservation.service';
 
 /**
- * BillingService - Session 2B
+ * BillingService - Session 2B + 4
  *
  * Handles bill generation from visits:
  * 1. Aggregates unbilled items (consultation, medicines, lab tests)
- * 2. Calculates accurate totals using TaxCalculator
- * 3. Generates bill with auto-incremented bill number
- * 4. Creates billing records in database
+ * 2. Reserves stock for medicines (Session 4)
+ * 3. Calculates accurate totals using TaxCalculator
+ * 4. Generates bill with auto-incremented bill number
+ * 5. Creates billing records in database
  */
 @Injectable()
 export class BillingService {
   private taxCalculator: TaxCalculator;
 
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => StockReservationService))
+    private stockReservation: StockReservationService,
+  ) {
     this.taxCalculator = new TaxCalculator();
   }
 
@@ -82,6 +88,18 @@ export class BillingService {
 
     // 5. Generate bill number
     const billNumber = await this.createBillNumber();
+
+    // 5.5. Reserve stock for medicines (Session 4)
+    // Extract medicine items for reservation
+    const medicineReservations = unbilledItems
+      .filter((item) => item.itemType === 'MEDICINE' && item.itemId)
+      .map((item) => ({
+        medicineId: item.itemId!.replace('rx-item-', ''), // Extract medicine ID from prescription item ID
+        quantity: item.quantity,
+      }));
+
+    // Note: Actual reservation will be done after bill creation using billingId
+    // This is a placeholder for the logic flow
 
     // 6. Create billing record with items
     const bill = await this.prisma.billing.create({

@@ -9,8 +9,10 @@ import {
 } from '@nestjs/common';
 import { BillingService } from './billing.service';
 import { PaymentService } from './payment.service';
+import { RazorpayService } from './razorpay.service';
 import { GenerateBillDto } from './dto/generate-bill.dto';
 import { RecordPaymentDto } from './dto/record-payment.dto';
+import { CreatePaymentLinkDto, PaymentLinkResponse } from './dto/razorpay.dto';
 import { BillResponse, BillPreview } from './dto/bill-response.dto';
 import {
   PaymentResponse,
@@ -19,6 +21,7 @@ import {
 } from './dto/payment-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 
 /**
  * BillingController - Session 2B & 2C
@@ -43,6 +46,7 @@ export class BillingController {
   constructor(
     private readonly billingService: BillingService,
     private readonly paymentService: PaymentService,
+    private readonly razorpayService: RazorpayService,
   ) {}
 
   /**
@@ -211,5 +215,53 @@ export class BillingController {
   @Roles('BILLING', 'ADMIN')
   async getOutstandingBills(): Promise<any[]> {
     return this.paymentService.getOutstandingBills();
+  }
+
+  // ========== RAZORPAY ENDPOINTS (Session 4) ==========
+
+  /**
+   * Create Razorpay payment link
+   * POST /api/billing/payment/razorpay/create-link
+   *
+   * Body:
+   * {
+   *   "billingId": "bill-123",
+   *   "customerName": "John Doe" (optional),
+   *   "customerEmail": "john@example.com" (optional),
+   *   "customerMobile": "9876543210" (optional)
+   * }
+   *
+   * Response:
+   * {
+   *   "id": "plink_xxx",
+   *   "shortUrl": "https://rzp.io/i/xxx",
+   *   "amount": 2444,
+   *   "currency": "INR",
+   *   "status": "created",
+   *   "billNumber": "HMS/2024/0001"
+   * }
+   */
+  @Post('payment/razorpay/create-link')
+  @Roles('BILLING', 'ADMIN', 'RECEPTIONIST')
+  async createPaymentLink(@Body() dto: CreatePaymentLinkDto): Promise<PaymentLinkResponse> {
+    return this.razorpayService.createPaymentLink(dto);
+  }
+
+  /**
+   * Razorpay webhook handler
+   * POST /api/billing/payment/razorpay/webhook
+   *
+   * Receives payment notifications from Razorpay
+   * Auto-records payments when payment.captured event is received
+   */
+  @Post('payment/razorpay/webhook')
+  @Public() // No authentication required for webhooks
+  async handleRazorpayWebhook(
+    @Body() payload: any,
+    @Request() req: any,
+  ): Promise<{ status: string }> {
+    const signature = req.headers['x-razorpay-signature'];
+    await this.razorpayService.handleWebhook(payload, signature);
+    return { status: 'ok' };
   }
 }
