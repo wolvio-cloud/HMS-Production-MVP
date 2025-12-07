@@ -8,25 +8,42 @@ import {
   Request,
 } from '@nestjs/common';
 import { BillingService } from './billing.service';
+import { PaymentService } from './payment.service';
 import { GenerateBillDto } from './dto/generate-bill.dto';
+import { RecordPaymentDto } from './dto/record-payment.dto';
 import { BillResponse, BillPreview } from './dto/bill-response.dto';
+import {
+  PaymentResponse,
+  PaymentSummary,
+  PaymentRecordedResponse,
+} from './dto/payment-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
 /**
- * BillingController - Session 2B
+ * BillingController - Session 2B & 2C
  *
- * Endpoints:
+ * Bill Endpoints:
  * - POST /api/billing/generate - Generate bill from visit
  * - GET /api/billing/preview/:visitId - Preview bill without creating
  * - GET /api/billing/:billId - Get bill by ID
  * - GET /api/billing/number/:billNumber - Get bill by bill number
  * - GET /api/billing/visit/:visitId - Get all bills for a visit
+ *
+ * Payment Endpoints (Session 2C):
+ * - POST /api/billing/payment/record - Record payment
+ * - GET /api/billing/payment/summary/:billingId - Get payment summary
+ * - GET /api/billing/payment/:paymentId - Get payment by ID
+ * - GET /api/billing/payment/bill/:billingId - Get all payments for bill
+ * - GET /api/billing/payment/outstanding - Get outstanding bills
  */
 @Controller('billing')
 @UseGuards(JwtAuthGuard)
 export class BillingController {
-  constructor(private readonly billingService: BillingService) {}
+  constructor(
+    private readonly billingService: BillingService,
+    private readonly paymentService: PaymentService,
+  ) {}
 
   /**
    * Generate bill from a visit
@@ -108,5 +125,91 @@ export class BillingController {
   @Roles('BILLING', 'ADMIN', 'DOCTOR', 'RECEPTIONIST')
   async getBillsForVisit(@Param('visitId') visitId: string): Promise<BillResponse[]> {
     return this.billingService.getBillsForVisit(visitId);
+  }
+
+  // ========== PAYMENT ENDPOINTS (Session 2C) ==========
+
+  /**
+   * Record a payment against a bill
+   * POST /api/billing/payment/record
+   *
+   * Body:
+   * {
+   *   "billingId": "bill-123",
+   *   "amount": 1000,
+   *   "mode": "CASH",
+   *   "transactionId": "TXN123" (optional, required for UPI/Card),
+   *   "upiId": "user@paytm" (optional),
+   *   "cardLast4": "1234" (optional),
+   *   "remarks": "Partial payment" (optional)
+   * }
+   *
+   * Response:
+   * {
+   *   "payment": { id, amount, mode, ... },
+   *   "billStatus": {
+   *     "billNumber": "HMS/2024/0001",
+   *     "total": 2444,
+   *     "paidAmount": 1000,
+   *     "balance": 1444,
+   *     "status": "PARTIAL"
+   *   }
+   * }
+   */
+  @Post('payment/record')
+  @Roles('BILLING', 'ADMIN', 'RECEPTIONIST')
+  async recordPayment(
+    @Body() dto: RecordPaymentDto,
+    @Request() req: any,
+  ): Promise<PaymentRecordedResponse> {
+    // Auto-fill recordedBy from authenticated user
+    dto.recordedBy = dto.recordedBy || req.user.userId;
+    return this.paymentService.recordPayment(dto);
+  }
+
+  /**
+   * Get payment summary for a bill
+   * GET /api/billing/payment/summary/:billingId
+   *
+   * Shows all payments and current balance
+   */
+  @Get('payment/summary/:billingId')
+  @Roles('BILLING', 'ADMIN', 'RECEPTIONIST')
+  async getPaymentSummary(@Param('billingId') billingId: string): Promise<PaymentSummary> {
+    return this.paymentService.getPaymentSummary(billingId);
+  }
+
+  /**
+   * Get payment by ID
+   * GET /api/billing/payment/:paymentId
+   */
+  @Get('payment/:paymentId')
+  @Roles('BILLING', 'ADMIN', 'RECEPTIONIST')
+  async getPayment(@Param('paymentId') paymentId: string): Promise<PaymentResponse> {
+    return this.paymentService.getPayment(paymentId);
+  }
+
+  /**
+   * Get all payments for a bill
+   * GET /api/billing/payment/bill/:billingId
+   */
+  @Get('payment/bill/:billingId')
+  @Roles('BILLING', 'ADMIN', 'RECEPTIONIST')
+  async getPaymentsForBill(
+    @Param('billingId') billingId: string,
+  ): Promise<PaymentResponse[]> {
+    return this.paymentService.getPaymentsForBill(billingId);
+  }
+
+  /**
+   * Get all outstanding bills
+   * GET /api/billing/payment/outstanding
+   *
+   * Returns bills with pending balance
+   */
+  @Get('payment/outstanding')
+  @Roles('BILLING', 'ADMIN')
+  async getOutstandingBills(): Promise<any[]> {
+    return this.paymentService.getOutstandingBills();
   }
 }
