@@ -201,6 +201,79 @@ class ApiClient {
     const response = await this.client.post(`/workflow/patients/${patientId}/complete-vitals`);
     return response.data;
   }
+
+  // ========== BILLING API (Session 5) ==========
+
+  // Bills
+  async generateBill(visitId: string) {
+    const response = await this.client.post('/billing/generate', { visitId });
+    return response.data;
+  }
+
+  async previewBill(visitId: string) {
+    const response = await this.client.get(`/billing/preview/${visitId}`);
+    return response.data;
+  }
+
+  async getBill(billId: string) {
+    const response = await this.client.get(`/billing/${billId}`);
+    return response.data;
+  }
+
+  async getBillByNumber(billNumber: string) {
+    const response = await this.client.get(`/billing/number/${billNumber}`);
+    return response.data;
+  }
+
+  async getBillsForVisit(visitId: string) {
+    const response = await this.client.get(`/billing/visit/${visitId}`);
+    return response.data;
+  }
+
+  // Payments
+  async recordPayment(data: {
+    billingId: string;
+    amount: number;
+    mode: 'CASH' | 'UPI' | 'CARD' | 'RAZORPAY_LINK';
+    transactionId?: string;
+    upiId?: string;
+    cardLast4?: string;
+    remarks?: string;
+  }) {
+    const response = await this.client.post('/billing/payment/record', data);
+    return response.data;
+  }
+
+  async getPaymentSummary(billingId: string) {
+    const response = await this.client.get(`/billing/payment/summary/${billingId}`);
+    return response.data;
+  }
+
+  async getPayment(paymentId: string) {
+    const response = await this.client.get(`/billing/payment/${paymentId}`);
+    return response.data;
+  }
+
+  async getPaymentsForBill(billingId: string) {
+    const response = await this.client.get(`/billing/payment/bill/${billingId}`);
+    return response.data;
+  }
+
+  async getOutstandingBills() {
+    const response = await this.client.get('/billing/payment/outstanding');
+    return response.data;
+  }
+
+  // Razorpay
+  async createPaymentLink(data: {
+    billingId: string;
+    customerName?: string;
+    customerEmail?: string;
+    customerMobile?: string;
+  }) {
+    const response = await this.client.post('/billing/payment/razorpay/create-link', data);
+    return response.data;
+  }
 }
 
 export const api = new ApiClient();
